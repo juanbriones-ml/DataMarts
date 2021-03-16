@@ -6,24 +6,24 @@ AS (
       SELECT SIT_SITE_ID SITE_ID,
         TIMESTAMP_TRUNC(ORD_CLOSED_DTTM, HOUR) HORA_SERVER,
         DATE(ORD_CLOSED_DTTM) DIA_SERVER,
-        DATETIME_TRUNC(case WHEN O.SIT_SITE_ID ='MLA' then DATETIME(ORD_CLOSED_DTTM, "America/Argentina/Buenos_Aires")
-                            WHEN O.SIT_SITE_ID ='MLC' then DATETIME(ORD_CLOSED_DTTM, "America/Santiago")
-                            WHEN O.SIT_SITE_ID ='MLB' then DATETIME(ORD_CLOSED_DTTM, "Brazil/East")
-                            WHEN O.SIT_SITE_ID ='MLM' then DATETIME(ORD_CLOSED_DTTM, "Mexico/General")
-                            WHEN O.SIT_SITE_ID ='MLU' then DATETIME(ORD_CLOSED_DTTM, "America/Montevideo")
-                            WHEN O.SIT_SITE_ID ='MCO' then DATETIME(ORD_CLOSED_DTTM, "America/Bogota")
-                            WHEN O.SIT_SITE_ID ='MPE' then DATETIME(ORD_CLOSED_DTTM, "America/Lima")
-                            WHEN O.SIT_SITE_ID ='MLV' then DATETIME(ORD_CLOSED_DTTM, "America/Caracas")
+        DATETIME_TRUNC(case WHEN O.SIT_SITE_ID ='MLA' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "America/Argentina/Buenos_Aires")
+                            WHEN O.SIT_SITE_ID ='MLC' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "America/Santiago")
+                            WHEN O.SIT_SITE_ID ='MLB' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "Brazil/East")
+                            WHEN O.SIT_SITE_ID ='MLM' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "Mexico/General")
+                            WHEN O.SIT_SITE_ID ='MLU' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "America/Montevideo")
+                            WHEN O.SIT_SITE_ID ='MCO' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "America/Bogota")
+                            WHEN O.SIT_SITE_ID ='MPE' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "America/Lima")
+                            WHEN O.SIT_SITE_ID ='MLV' then DATETIME(TIMESTAMP_TRUNC(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), HOUR), "America/Caracas")
                             END, HOUR) HORA_SITE,
-        case WHEN O.SIT_SITE_ID ='MLA' then DATE(ORD_CLOSED_DTTM, "America/Argentina/Buenos_Aires")
-                            WHEN O.SIT_SITE_ID ='MLC' then DATE(ORD_CLOSED_DTTM, "America/Santiago")
-                            WHEN O.SIT_SITE_ID ='MLB' then DATE(ORD_CLOSED_DTTM, "Brazil/East")
-                            WHEN O.SIT_SITE_ID ='MLM' then DATE(ORD_CLOSED_DTTM, "Mexico/General")
-                            WHEN O.SIT_SITE_ID ='MLU' then DATE(ORD_CLOSED_DTTM, "America/Montevideo")
-                            WHEN O.SIT_SITE_ID ='MCO' then DATE(ORD_CLOSED_DTTM, "America/Bogota")
-                            WHEN O.SIT_SITE_ID ='MPE' then DATE(ORD_CLOSED_DTTM, "America/Lima")
-                            WHEN O.SIT_SITE_ID ='MLV' then DATE(ORD_CLOSED_DTTM, "America/Caracas")
-                            END DIA_SITE,
+        case WHEN O.SIT_SITE_ID ='MLA' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "America/Argentina/Buenos_Aires"))
+              WHEN O.SIT_SITE_ID ='MLC' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "America/Santiago"))
+              WHEN O.SIT_SITE_ID ='MLB' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "Brazil/East"))
+              WHEN O.SIT_SITE_ID ='MLM' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "Mexico/General"))
+              WHEN O.SIT_SITE_ID ='MLU' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "America/Montevideo"))
+              WHEN O.SIT_SITE_ID ='MCO' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "America/Bogota"))
+              WHEN O.SIT_SITE_ID ='MPE' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "America/Lima"))
+              WHEN O.SIT_SITE_ID ='MLV' then DATE(DATETIME(TIMESTAMP_ADD(ORD_CLOSED_DTTM, INTERVAL 4 HOUR), "America/Caracas"))
+              END DIA_SITE,
         ORD_CATEGORY.LEVELS[SAFE_OFFSET(0)].ID CAT_L1_ID,
         ORD_CATEGORY.LEVELS[SAFE_OFFSET(0)].NAME CAT_L1_NAME,
         ORD_CATEGORY.LEVELS[SAFE_OFFSET(1)].ID CAT_L2_ID,
@@ -119,16 +119,15 @@ AS (
             MIN(Y.DEAL_TYPE) PROMOTION_TYPE
         FROM (
               SELECT SITE_ID,
-                    POSITION_RANK,
                     MAX(CREATED_DATE) LAST_UPD
               FROM `meli-bi-data.ML.BT_PROMOTIONS_LANDING_SCORE`
-              GROUP BY 1,2
+              GROUP BY 1
         ) X
         JOIN `meli-bi-data.ML.BT_PROMOTIONS_LANDING_SCORE` Y
             ON X.LAST_UPD = Y.CREATED_DATE
               AND X.SITE_ID = Y.SITE_ID
-              AND X.POSITION_RANK = Y.POSITION_RANK
         GROUP BY 1,2
+        order by 1,3
       )
     ),
     REBATES AS (
