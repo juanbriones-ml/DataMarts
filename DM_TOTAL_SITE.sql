@@ -65,14 +65,25 @@ AS (
 	      AND SIT_SITE_ID IN ('MLA','MLC','MLB','MLM','MLU','MCO','MPE','MLV')
       GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22
     ),
+    DOMAINS AS (
+        SELECT D.DOM_DOMAIN_AGG1,
+            D.DOM_DOMAIN_AGG2,
+            D.DOM_DOMAIN_AGG3,
+            VERTICAL,
+            SIT_SITE_ID SITE_ID,
+            SUBSTR(DOM_DOMAIN_ID,5) DOM_DOMAIN_ID
+        FROM `bi-data.WHOWNER_TBL.LK_DOM_DOMAINS` D
+    ),
     ORDENES_VERTICAL AS (
-      SELECT O.*,
+    SELECT O.*,
+        D.DOM_DOMAIN_AGG1 DOM_AGG_1,
+        D.DOM_DOMAIN_AGG2 DOM_AGG_2,
+        D.DOM_DOMAIN_AGG3 DOM_AGG_3,
         VERTICAL
-      FROM ORDERS O
-      LEFT JOIN `bi-meli.WHOWNER_TBL.AG_LK_CAT_CATEGORIES` C
-        ON O.SITE_ID = C.SIT_SITE_ID
-          AND O.CAT_L7_ID = C.CAT_CATEG_ID_L7
-          AND C.CAT_DELETED_FLG = False
+    FROM ORDERS O
+    LEFT JOIN DOMAINS D
+        ON O.DOM_DOMAIN_ID = D.DOM_DOMAIN_ID
+            AND O.SITE_ID = D.SITE_ID
     ),
     ITEMS AS (
       SELECT SIT_SITE_ID SITE_ID,
@@ -162,40 +173,25 @@ AS (
       GROUP BY 1,2
     ),
     COMPETENCIA AS (
-      SELECT SITE_ID,
-          ITE_ITEM_ID,
-          ARRAY_AGG(STRUCT(RIVAL_ID))[SAFE_OFFSET(0)].RIVAL_ID MIN_RIVAL,
-          ARRAY_AGG(STRUCT(COMP_MIN_OFFER_PRICE))[SAFE_OFFSET(0)].COMP_MIN_OFFER_PRICE MIN_RIVAL_PRICE,
-          ARRAY_AGG(STRUCT(COMP_URL))[SAFE_OFFSET(0)].COMP_URL MIN_RIVAL_URL,
-          ARRAY_AGG(
-              STRUCT(RIVAL_ID,
-                  COMP_MIN_OFFER_PRICE,
-                  COMP_URL
-          )) as RIVALS
-      FROM(
-            SELECT X.SITE_ID,
-              CAST(SUBSTR(X.MELI_ID,4) AS INT64) ITE_ITEM_ID,
-              X.RIVAL_ID,
-              S.COMP_MIN_OFFER_PRICE,
-              S.COMP_URL,
-            FROM (
-                SELECT RIVAL_ID,
-                  SITE_ID,
-                  MELI_ID,
-                  MAX(COMP_SCRAP_DATE) LAST_UPD
-                FROM `meli-bi-data.COMPETENCIA.COMP_HOUND_V2_LAST_SCRAP_DATE`
-                WHERE COMP_STATUS = 'active'
-                GROUP BY 1,2,3
-            ) X
-            JOIN `meli-bi-data.COMPETENCIA.COMP_HOUND_V2_LAST_SCRAP_DATE` S
-              ON X.SITE_ID = S.SITE_ID
-                AND X.RIVAL_ID = S.RIVAL_ID
-                AND X.MELI_ID = S.MELI_ID
-                AND X.LAST_UPD = S.COMP_SCRAP_DATE
-            ORDER BY 1,2,4 ASC
-      )
-      GROUP BY 1,2
+        SELECT SIT_SITE_ID SITE_ID,
+            ITE_ITEM_ID ITEM_ID,
+            ARRAY_AGG(STRUCT(COMP_SITE_ID))[SAFE_OFFSET(0)] MIN_RIVAL,
+            ARRAY_AGG(STRUCT(COMP_ITEM_PRICE))[SAFE_OFFSET(0)] MIN_RIVAL_PRICE,
+            ARRAY_AGG(STRUCT(HOUND_URL))[SAFE_OFFSET(0)] MIN_RIVAL_URL,
+            ARRAY_AGG(
+                STRUCT(COMP_SITE_ID AS RIVAL_ID,
+                    COMP_ITEM_PRICE AS COMP_MIN_OFFER_PRICE,
+                    HOUND_URL AS COMP_URL
+            )) as RIVALS
+        FROM (
+        SELECT SIT_SITE_ID, ITE_ITEM_ID, COMP_SITE_ID, HOUND_URL,MIN(COMP_ITEM_PRICE) AS COMP_ITEM_PRICE,
+        FROM `meli-bi-data.COMPETENCIA.LK_COMPETITIVE_ITEMS`
+        GROUP BY 1,2,3,4
+        ORDER BY 1,2,5
+        )
+        GROUP BY 1,2
     ),
+
     PRICES AS (
       SELECT I.SIT_SITE_ID,
         I.ITE_ITEM_ID,
@@ -228,7 +224,7 @@ AS (
           AND I.ITEM_ID = R.ITE_ITEM_ID
       LEFT JOIN COMPETENCIA C
         ON I.SITE_ID = C.SITE_ID
-          AND I.ITEM_ID = C.ITE_ITEM_ID
+          AND I.ITEM_ID = C.ITEM_ID
       LEFT JOIN PRICES P
         ON I.SITE_ID = P.SIT_SITE_ID
           AND I.ITEM_ID = P.ITE_ITEM_ID
@@ -273,6 +269,9 @@ AS (
           CAT_L2_NAME,
           CAT_L3_ID,
           CAT_L3_NAME,
+          DOM_AGG_1,
+          DOM_AGG_2,
+          DOM_AGG_3,
           DOM_DOMAIN_ID DOMAIN,
           LOGISTIC_TYPE,
           SHIPPING_MODE,
@@ -293,7 +292,7 @@ AS (
       FROM ORDENES_VERTICAL O
       LEFT JOIN `bi-meli.DATAMART.DM_SELLERS_DEALS` S
         ON O.SELLER_ID = S.CUS_CUST_ID_SEL
-      GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26
+      GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29
     ) X
     LEFT JOIN ITEM_DETAIL I
       ON X.SITE_ID = I.SITE_ID
