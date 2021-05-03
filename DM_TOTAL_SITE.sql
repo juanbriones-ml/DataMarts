@@ -36,13 +36,13 @@ AS (
             WHEN ORD_SHIPPING.LOGISTIC_TYPE = 'xd_drop_off' then 'XD'
             WHEN ORD_SHIPPING.LOGISTIC_TYPE = 'cross_docking' then 'XD'
             WHEN ORD_SHIPPING.LOGISTIC_TYPE = 'fulfillment' then 'FBM'
-            ELSE 'Otro' end as LOGISTIC_TYPE,
+            ELSE 'Otro' end as LOGISTIC_TYPE_ORDER,
         CASE
         --                    WHEN ORD_PICKUP_ID IS NOT NULL THEN 'PUIS'
             WHEN ORD_SHIPPING.MODE = 'me2' THEN 'ME2'
             WHEN ORD_SHIPPING.MODE = 'me1' THEN 'ME1'
             WHEN ORD_SHIPPING.MODE = 'custom' THEN 'Custom'
-            ELSE 'Other' END SHIPPING_MODE,
+            ELSE 'Other' END SHIPPING_MODE_ORDER,
         CASE WHEN SIT_SITE_ID = 'MLC' THEN TRUE
             WHEN SIT_SITE_ID = 'MLU' AND ORD_ITEM.LISTING_TYPE_ID <> 'free' THEN TRUE
             WHEN SIT_SITE_ID = 'MLV' THEN FALSE
@@ -74,16 +74,25 @@ AS (
             SUBSTR(DOM_DOMAIN_ID,5) DOM_DOMAIN_ID
         FROM `bi-data.WHOWNER_TBL.LK_DOM_DOMAINS` D
     ),
-    ORDENES_VERTICAL AS (
-    SELECT O.*,
-        D.DOM_DOMAIN_AGG1 DOM_AGG_1,
-        D.DOM_DOMAIN_AGG2 DOM_AGG_2,
-        D.DOM_DOMAIN_AGG3 DOM_AGG_3,
-        VERTICAL
-    FROM ORDERS O
-    LEFT JOIN DOMAINS D
-        ON O.DOM_DOMAIN_ID = D.DOM_DOMAIN_ID
-            AND O.SITE_ID = D.SITE_ID
+    DOMAINS_VERTICAL AS (
+        SELECT O.*,
+            D.DOM_DOMAIN_AGG1 DOM_AGG_1,
+            D.DOM_DOMAIN_AGG2 DOM_AGG_2,
+            D.DOM_DOMAIN_AGG3 DOM_AGG_3,
+            VERTICAL
+        FROM ORDERS O
+        LEFT JOIN DOMAINS D
+            ON O.DOM_DOMAIN_ID = D.DOM_DOMAIN_ID
+                AND O.SITE_ID = D.SITE_ID
+    ),
+    CATEGORIES_VERTICAL AS (
+        SELECT O.*,
+            VERTICAL
+        FROM ORDERS O
+        LEFT JOIN `bi-meli.WHOWNER_TBL.AG_LK_CAT_CATEGORIES` C
+            ON O.SITE_ID = C.SIT_SITE_ID
+                AND O.CAT_L7_ID = C.CAT_CATEG_ID_L7
+                AND C.CAT_DELETED_FLG = False
     ),
     ITEMS AS (
       SELECT SIT_SITE_ID SITE_ID,
@@ -99,6 +108,15 @@ AS (
             WHEN ITE_ITEM_LISTING_TYPE_ID_NW = 'gold_pro' THEN TRUE 
             ELSE FALSE 
           END PSJ_ITEM,
+        CASE WHEN ITE_ITEM_SHIPPING_LOGISTIC_TYPE = 'drop_off' then 'DS'
+            WHEN ITE_ITEM_SHIPPING_LOGISTIC_TYPE = 'xd_drop_off' then 'XD'
+            WHEN ITE_ITEM_SHIPPING_LOGISTIC_TYPE = 'cross_docking' then 'XD'
+            WHEN ITE_ITEM_SHIPPING_LOGISTIC_TYPE = 'fulfillment' then 'FBM'
+            ELSE 'Otro' end as LOGISTIC_TYPE_ITEM,
+        CASE WHEN ITE_ITEM_SHIPPING_MODE_ID = 'me2' THEN 'ME2'
+            WHEN ITE_ITEM_SHIPPING_MODE_ID = 'me1' THEN 'ME1'
+            WHEN ITE_ITEM_SHIPPING_MODE_ID = 'custom' THEN 'Custom'
+            ELSE 'Other' END SHIPPING_MODE_ITEM,
         ITE_ITEM_CATALOG_PRODUCT_ID PRODUCT_ID,
         ITE_ITEM_THUMBNAIL THUMBNAIL,
         ITE_ITEM_PERMALINK PERMALINK
@@ -235,6 +253,7 @@ AS (
         ON I.SITE_ID = M.SIT_SITE_ID
           AND I.ITEM_ID = M.ITE_ITEM_ID
     )
+
     SELECT X.*,
       ITEM_TITLE,
       PRODUCT_ID,
@@ -243,6 +262,8 @@ AS (
       STATUS,
       FS_ITEM,
       PSJ_ITEM,
+      LOGISTIC_TYPE_ITEM,
+      SHIPPING_MODE_ITEM,
       THUMBNAIL,
       PERMALINK,
       PRICE,
@@ -269,12 +290,12 @@ AS (
           CAT_L2_NAME,
           CAT_L3_ID,
           CAT_L3_NAME,
-          DOM_AGG_1,
-          DOM_AGG_2,
-          DOM_AGG_3,
+--          DOM_AGG_1,
+--          DOM_AGG_2,
+--          DOM_AGG_3,
           DOM_DOMAIN_ID DOMAIN,
-          LOGISTIC_TYPE,
-          SHIPPING_MODE,
+          LOGISTIC_TYPE_ORDER,
+          SHIPPING_MODE_ORDER,
           PSJ_ORDER,
           FS_ORDER,
           BUYBOX,
@@ -289,10 +310,10 @@ AS (
           SUM(GMV_LC) GMV_LC,
           SUM(GMV) GMV,
           SUM(SI) SI
-      FROM ORDENES_VERTICAL O
+      FROM CATEGORIES_VERTICAL O
       LEFT JOIN `bi-meli.DATAMART.DM_SELLERS_DEALS` S
         ON O.SELLER_ID = S.CUS_CUST_ID_SEL
-      GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29
+      GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26
     ) X
     LEFT JOIN ITEM_DETAIL I
       ON X.SITE_ID = I.SITE_ID
